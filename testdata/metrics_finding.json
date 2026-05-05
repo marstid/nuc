@@ -1,0 +1,13 @@
+{
+  "metric_date": "2024-10-17",
+  "projectmetricsdiscovered30": 45,
+  "projectmetricsremediated30": 38,
+  "projectmetricsremdays30": 12,
+  "projectmetricsdiscovered90": 142,
+  "projectmetricsremediated90": 128,
+  "projectmetricsremdays90": 15,
+  "projectmetricsdiscovered180": 287,
+  "projectmetricsremediated180": 251,
+  "projectmetricsremdays180": 18,
+  "success": true
+}

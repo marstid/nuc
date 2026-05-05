@@ -1,0 +1,18 @@
+{
+  "asset_id": "123",
+  "asset_name": "db-primary",
+  "asset_type": "Database",
+  "ip_address": "10.0.1.50",
+  "domain_name": "db-primary.internal",
+  "operating_system_name": "Debian",
+  "operating_system_version": "12",
+  "asset_criticality": "Critical",
+  "asset_groups": ["production", "database-tier"],
+  "asset_location": "eu-west-1",
+  "asset_notes": "Primary PostgreSQL database",
+  "asset_data_sensitivity_score": "10",
+  "asset_public": "0",
+  "active": true,
+  "created_at": "2024-01-05T06:00:00Z",
+  "updated_at": "2024-03-22T15:45:00Z"
+}

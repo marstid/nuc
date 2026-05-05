@@ -1,0 +1,11 @@
+{
+  "finding_count_crithigh": "17",
+  "finding_count_cve": "5",
+  "finding_count_iava": "0",
+  "finding_count_exploitable": "12",
+  "finding_count_critical": "5",
+  "finding_count_high": "12",
+  "finding_count_medium": "15",
+  "finding_count_low": "8",
+  "finding_vulnerability_score": 42000
+}

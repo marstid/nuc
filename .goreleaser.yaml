@@ -1,0 +1,96 @@
+version: 2
+
+project_name: nuc
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod verify
+
+builds:
+  - id: nuc
+    main: ./cmd/nuc
+    binary: nuc
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/marstid/nuc/pkg/version.Version={{.Version}}
+      - -X github.com/marstid/nuc/pkg/version.Commit={{.Commit}}
+      - -X github.com/marstid/nuc/pkg/version.Date={{.Date}}
+
+archives:
+  - id: nuc
+    ids: [nuc]
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "Merge pull request"
+      - "Merge branch"
+  groups:
+    - title: "New Features"
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: "Bug Fixes"
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: "Other Changes"
+      order: 999
+
+release:
+  github:
+      owner: marstid
+      name: nuc
+  name_template: "v{{.Version}}"
+  draft: false
+  prerelease: auto
+
+homebrew_casks:
+  - name: nuc
+    repository:
+      owner: marstid
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: "https://github.com/marstid/nuc"
+    description: "Nucleus Security CLI — manage vulnerability findings, assets, and scans from the command line."
+    binaries:
+      - nuc
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/nuc"]
+          end

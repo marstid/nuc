@@ -1,0 +1,1 @@
+{"groups": [{"group_name": "web-servers", "values": {"vuln_count_critical": "5", "vuln_count_high": "12", "mttr_30d": "7.5"}}, {"group_name": "databases", "values": {"vuln_count_critical": "2", "vuln_count_high": "8", "mttr_30d": "4.2"}}]}

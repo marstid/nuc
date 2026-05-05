@@ -1,0 +1,43 @@
+version: "2"
+
+run:
+  timeout: 3m
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - ineffassign
+    - unused
+    - revive
+    - misspell
+    - gosec
+    - nolintlint
+
+  settings:
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - "checkPrivateReceivers"
+    gosec:
+      excludes:
+        - G104 # unhandled errors — covered by errcheck
+        - G404 # weak random — jitter does not require crypto-grade randomness
+        - G704 # SSRF taint — all URLs are constructed from a configured base URL
+    errcheck:
+      # Ignore errors from fmt.Print* to stdout/stderr — normal in a CLI
+      exclude-functions:
+        - fmt.Fprintln
+        - fmt.Fprintf
+        - fmt.Fprint
+
+  exclusions:
+    rules:
+      # Test files: relax errcheck and gosec
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec

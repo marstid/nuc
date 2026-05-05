@@ -1,0 +1,32 @@
+[
+  {
+    "finding_number": "ALAS2-2023-2316",
+    "finding_name": "ALAS2-2023-2316",
+    "finding_severity": "High",
+    "finding_severities": ["High"],
+    "finding_discovered": "2023-10-20 22:04:26",
+    "finding_exploitable": "0",
+    "scan_type": "AMAZON",
+    "manual_mitigated": "0",
+    "finding_remediated_date": "2026-02-20 00:00:00",
+    "finding_remediation_days": "854",
+    "total_open": "0",
+    "total_manual": "0",
+    "total_mitigated": "20"
+  },
+  {
+    "finding_number": "CVE-2022-1234",
+    "finding_name": "OpenSSL Memory Corruption",
+    "finding_severity": "Critical",
+    "finding_severities": ["Critical"],
+    "finding_discovered": "2022-06-01 10:00:00",
+    "finding_exploitable": "1",
+    "scan_type": "TRIVY",
+    "manual_mitigated": "0",
+    "finding_remediated_date": "2026-01-10 00:00:00",
+    "finding_remediation_days": "1288",
+    "total_open": "0",
+    "total_manual": "0",
+    "total_mitigated": "5"
+  }
+]

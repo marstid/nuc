@@ -1,0 +1,20 @@
+{
+  "production": {
+    "risk_score": 75,
+    "asset_count": 120,
+    "vuln_count": 340,
+    "vuln_count_critical": 12,
+    "vuln_count_high": 45,
+    "mttr_7d": 8,
+    "nucleus_exploited_count": 3
+  },
+  "staging": {
+    "risk_score": 60,
+    "asset_count": 85,
+    "vuln_count": 210,
+    "vuln_count_critical": 5,
+    "vuln_count_high": 28,
+    "mttr_7d": 11,
+    "nucleus_exploited_count": 1
+  }
+}
