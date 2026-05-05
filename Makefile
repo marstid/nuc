@@ -26,7 +26,7 @@ test:
 
 ## lint: Run golangci-lint
 lint:
-	golangci-lint run ./...
+	golangci-lint run --timeout=3m ./...
 
 ## install: Install both binaries to $GOPATH/bin
 install: install-nuc install-mcp
