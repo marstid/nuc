@@ -12,14 +12,15 @@ A command-line interface and MCP server for the [Nucleus Security](https://nucle
 ```bash
 brew tap marstid/tap
 brew install nuc
+brew install nuc-mcp
 ```
 
 ### Prebuilt Binary (Windows / Linux)
 
 Download the latest release from [github.com/marstid/nuc/releases](https://github.com/marstid/nuc/releases):
 
-- **Windows**: `nuc_<version>_windows_amd64.zip` — extract `nuc.exe`
-- **Linux**: `nuc_<version>_linux_amd64.tar.gz` or `_arm64`
+- **Windows**: `nuc_<version>_windows_amd64.zip` — extract `nuc.exe` / `nuc-mcp_<version>_windows_amd64.zip` — extract `nuc-mcp.exe`
+- **Linux**: `nuc_<version>_linux_amd64.tar.gz` or `_arm64` / `nuc-mcp_<version>_linux_amd64.tar.gz` or `_arm64`
 
 ### From Source
 
