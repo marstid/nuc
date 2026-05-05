@@ -4,13 +4,27 @@ A command-line interface for the [Nucleus Security](https://nucleussec.com) vuln
 
 ## Installation
 
-### From source
+### Homebrew (macOS / Linux)
+
+```bash
+brew tap marstid/tap
+brew install nuc
+```
+
+### Prebuilt Binary (Windows / Linux)
+
+Download the latest release from [github.com/marstid/nuc/releases](https://github.com/marstid/nuc/releases):
+
+- **Windows**: `nuc_<version>_windows_amd64.zip` — extract `nuc.exe`
+- **Linux**: `nuc_<version>_linux_amd64.tar.gz` or `_arm64`
+
+### From Source
 
 ```bash
 go install github.com/marstid/nuc/cmd/nuc@latest
 ```
 
-### Build locally
+### Build Locally
 
 ```bash
 git clone https://github.com/marstid/nuc.git
