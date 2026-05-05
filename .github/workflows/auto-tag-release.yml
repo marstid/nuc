@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   tag:
@@ -31,3 +32,9 @@ jobs:
           VERSION="${VERSION#release/}"
           git tag -a "$VERSION" -m "Release $VERSION"
           git push origin "$VERSION"
+
+      - name: Trigger release workflow
+        run: |
+          VERSION="${{ github.event.pull_request.head.ref }}"
+          VERSION="${VERSION#release/}"
+          gh workflow run release.yml --ref main -f tag="$VERSION"
