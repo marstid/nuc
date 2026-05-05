@@ -116,6 +116,7 @@ release:
 
 homebrew_casks:
   - name: nuc
+    ids: [nuc]
     repository:
       owner: marstid
       name: homebrew-tap
@@ -131,6 +132,7 @@ homebrew_casks:
             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/nuc"]
           end
   - name: nuc-mcp
+    ids: [nuc-mcp]
     repository:
       owner: marstid
       name: homebrew-tap
