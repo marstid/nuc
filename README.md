@@ -46,6 +46,12 @@ Binaries will be at `bin/nuc` and `bin/nuc-mcp`.
 
 ## Configuration
 
+### Create an API key
+
+1. Log in to your Nucleus Security instance (e.g. `https://nucleus-eu6.nucleussec.com`)
+2. Navigate to **Settings → API Keys**
+3. Click **Create API Key** and copy the generated key
+
 ### Set your API key
 
 ```bash
