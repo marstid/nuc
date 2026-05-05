@@ -4,13 +4,21 @@ DATE    ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -ldflags "-X github.com/marstid/nuc/pkg/version.Version=$(VERSION) \
                       -X github.com/marstid/nuc/pkg/version.Commit=$(COMMIT) \
                       -X github.com/marstid/nuc/pkg/version.Date=$(DATE)"
-BINARY  := nuc
+BINARY     := nuc
+MCP_BINARY := nuc-mcp
 
-.PHONY: build test lint install clean fmt vet
+.PHONY: build build-nuc build-mcp test lint install install-nuc install-mcp clean fmt vet run-mcp run-mcp-http help
 
-## build: Build the nuc binary
-build:
+## build: Build both nuc and nuc-mcp binaries
+build: build-nuc build-mcp
+
+## build-nuc: Build the nuc CLI binary
+build-nuc:
 	go build $(LDFLAGS) -o bin/$(BINARY) ./cmd/nuc
+
+## build-mcp: Build the nuc-mcp server binary
+build-mcp:
+	go build $(LDFLAGS) -o bin/$(MCP_BINARY) ./cmd/nuc-mcp
 
 ## test: Run all tests with race detection
 test:
@@ -20,9 +28,16 @@ test:
 lint:
 	golangci-lint run ./...
 
-## install: Install nuc to $GOPATH/bin
-install:
+## install: Install both binaries to $GOPATH/bin
+install: install-nuc install-mcp
+
+## install-nuc: Install nuc to $GOPATH/bin
+install-nuc:
 	go install $(LDFLAGS) ./cmd/nuc
+
+## install-mcp: Install nuc-mcp to $GOPATH/bin
+install-mcp:
+	go install $(LDFLAGS) ./cmd/nuc-mcp
 
 ## clean: Remove build artifacts
 clean:
@@ -35,6 +50,14 @@ fmt:
 ## vet: Run go vet
 vet:
 	go vet ./...
+
+## run-mcp: Run the MCP server over stdio
+run-mcp: build-mcp
+	./bin/$(MCP_BINARY)
+
+## run-mcp-http: Run the MCP server over HTTP on localhost:8080
+run-mcp-http: build-mcp
+	./bin/$(MCP_BINARY) --transport=http --addr=localhost:8080
 
 ## help: Show this help message
 help:

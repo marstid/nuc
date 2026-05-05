@@ -28,12 +28,48 @@ builds:
       - -X github.com/marstid/nuc/pkg/version.Version={{.Version}}
       - -X github.com/marstid/nuc/pkg/version.Commit={{.Commit}}
       - -X github.com/marstid/nuc/pkg/version.Date={{.Date}}
+  - id: nuc-mcp
+    main: ./cmd/nuc-mcp
+    binary: nuc-mcp
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/marstid/nuc/pkg/version.Version={{.Version}}
+      - -X github.com/marstid/nuc/pkg/version.Commit={{.Commit}}
+      - -X github.com/marstid/nuc/pkg/version.Date={{.Date}}
 
 archives:
   - id: nuc
     ids: [nuc]
     name_template: >-
       {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - README.md
+      - LICENSE
+  - id: nuc-mcp
+    ids: [nuc-mcp]
+    name_template: >-
+      nuc-mcp_
       {{- .Version }}_
       {{- .Os }}_
       {{- .Arch }}

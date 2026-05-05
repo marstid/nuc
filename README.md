@@ -1,6 +1,9 @@
 # nuc
 
-A command-line interface for the [Nucleus Security](https://nucleussec.com) vulnerability management platform.
+A command-line interface and MCP server for the [Nucleus Security](https://nucleussec.com) vulnerability management platform.
+
+- **`nuc`** — CLI for managing findings, assets, scans, and metrics
+- **`nuc-mcp`** — MCP server exposing the same capabilities to AI agents (Claude, Cursor, opencode, etc.)
 
 ## Installation
 
@@ -24,6 +27,12 @@ Download the latest release from [github.com/marstid/nuc/releases](https://githu
 go install github.com/marstid/nuc/cmd/nuc@latest
 ```
 
+For the MCP server:
+
+```bash
+go install github.com/marstid/nuc/cmd/nuc-mcp@latest
+```
+
 ### Build Locally
 
 ```bash
@@ -32,7 +41,7 @@ cd nuc
 make build
 ```
 
-The binary will be at `bin/nuc`.
+Binaries will be at `bin/nuc` and `bin/nuc-mcp`.
 
 ## Configuration
 
@@ -260,6 +269,108 @@ nuc projects list -q
 | `-o, --output` | — | Output format: `table`, `json` |
 | `-q, --quiet` | — | Only print IDs |
 
+## MCP Server
+
+`nuc-mcp` exposes all Nucleus Security capabilities as [Model Context Protocol](https://modelcontextprotocol.io) tools, resources, and prompts — letting AI agents query findings, triage vulnerabilities, and generate security reports.
+
+### Configuration Priority
+
+The MCP server reuses your `nuc` config file, with environment variables as overrides:
+
+1. **Config file** — set once with `nuc config set api_key` / `nuc config set base_url`
+2. **Environment variables** — `NUC_API_KEY` / `NUC_BASE_URL` (override file)
+3. **CLI flags** — `--api-key` / `--base-url` (highest priority, for dev/debug)
+
+This means: if you've already configured `nuc`, the MCP server works without any extra setup.
+
+### Transport Modes
+
+| Mode | Use case |
+|------|----------|
+| `stdio` (default) | Local AI tools (Claude Desktop, opencode, Cursor) |
+| `http` | Remote/network deployment |
+
+```bash
+# stdio (default)
+nuc-mcp
+
+# HTTP on localhost:8080
+nuc-mcp --transport=http --addr=localhost:8080
+```
+
+### Available Tools (21)
+
+| Tool | Description |
+|------|-------------|
+| `list_projects` | List all accessible projects |
+| `get_project` | Get project details |
+| `get_project_risk_score` | Get project risk score |
+| `list_findings` | List findings with filters |
+| `get_finding` | Get finding details |
+| `search_findings` | Advanced search (CVE, exploitability, groups) |
+| `update_finding` | Update finding status/severity |
+| `bulk_update_findings` | Batch update findings |
+| `get_mitigated_findings` | Get mitigated findings |
+| `get_finding_trend` | Vulnerability trend over time |
+| `get_finding_overview` | Severity distribution summary |
+| `get_finding_frameworks` | Compliance frameworks |
+| `list_assets` | List assets with filters |
+| `get_asset` | Get asset details |
+| `update_asset` | Update asset properties |
+| `list_asset_groups` | List asset groups |
+| `get_asset_group_metrics` | Security metrics per group |
+| `list_teams` | List teams (filtered asset groups) |
+| `list_scans` | List vulnerability scans |
+| `get_finding_metrics` | 30/90/180-day metrics |
+
+### Setup with opencode
+
+Add to your `.opencode/config.json`:
+
+```json
+{
+  "mcpServers": {
+    "nucleus": {
+      "command": "nuc-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}
+```
+
+If you've already run `nuc config set api_key` and `nuc config set base_url`, no env vars needed. To override:
+
+```json
+{
+  "mcpServers": {
+    "nucleus": {
+      "command": "nuc-mcp",
+      "args": [],
+      "env": {
+        "NUC_API_KEY": "your-api-key",
+        "NUC_BASE_URL": "https://nucleus-eu6.nucleussec.com/nucleus/api"
+      }
+    }
+  }
+}
+```
+
+### Setup with Claude Desktop
+
+Add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "nucleus": {
+      "command": "nuc-mcp",
+      "args": []
+    }
+  }
+}
+```
+
 ## Development
 
 ### Prerequisites
@@ -270,13 +381,17 @@ nuc projects list -q
 ### Commands
 
 ```bash
-make build    # Build the binary
-make test     # Run tests with race detection
-make lint     # Run linter
-make fmt      # Format code
-make vet      # Run go vet
-make install  # Install to $GOPATH/bin
-make clean    # Remove build artifacts
+make build       # Build both nuc and nuc-mcp
+make build-nuc   # Build CLI only
+make build-mcp   # Build MCP server only
+make test        # Run tests with race detection
+make lint        # Run linter
+make fmt         # Format code
+make vet         # Run go vet
+make install      # Install both to $GOPATH/bin
+make run-mcp      # Run MCP server over stdio
+make run-mcp-http # Run MCP server over HTTP
+make clean       # Remove build artifacts
 ```
 
 ## Disclaimer
