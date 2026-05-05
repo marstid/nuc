@@ -24,6 +24,7 @@ linters:
         - G104 # unhandled errors — covered by errcheck
         - G404 # weak random — jitter does not require crypto-grade randomness
         - G704 # SSRF taint — all URLs are constructed from a configured base URL
+        - G117 # secret pattern in struct field — APIKey in config structs is not a leaked secret
     errcheck:
       # Ignore errors from fmt.Print* to stdout/stderr — normal in a CLI
       exclude-functions:

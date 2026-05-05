@@ -31,7 +31,7 @@ var validKeys = []string{"api_key", "base_url", "default_project", "output_forma
 
 // Config represents the persisted CLI configuration.
 type Config struct {
-	APIKey         string `yaml:"api_key,omitempty"` //nolint:gosec // G117: field name matches secret pattern but this is a config struct, not a secret store
+	APIKey         string `yaml:"api_key,omitempty"`
 	BaseURL        string `yaml:"base_url,omitempty"`
 	DefaultProject string `yaml:"default_project,omitempty"`
 	OutputFormat   string `yaml:"output_format,omitempty"`

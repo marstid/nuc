@@ -9,7 +9,7 @@ import (
 
 // Config holds the MCP server configuration resolved from file, flags, and environment.
 type Config struct {
-	APIKey  string //nolint:gosec // G117: field name is not a secret, just a key reference
+	APIKey  string
 	BaseURL string
 }
 
