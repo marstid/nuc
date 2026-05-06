@@ -33,7 +33,7 @@ type searchFindingsInput struct {
 	FindingSeverity    string   `json:"finding_severity,omitempty" jsonschema:"Filter by severity: Critical,High,Medium,Low,Info"`
 	FindingExploitable string   `json:"finding_exploitable,omitempty" jsonschema:"Filter by exploitability"`
 	Start              int      `json:"start,omitempty" jsonschema:"Pagination offset"`
-	Limit              int      `json:"limit,omitempty" jsonschema:"Max results (default 100, max 1000)"`
+	Limit              *int     `json:"limit,omitempty" jsonschema:"Max results to return. Omit to fetch all results automatically."`
 }
 
 type updateFindingInput struct {
@@ -72,6 +72,24 @@ type getFindingTrendInput struct {
 	AssetGroups []string `json:"asset_groups,omitempty" jsonschema:"Filter by asset groups"`
 }
 
+func paginateAll[T any](ctx context.Context, fetch func(offset, limit int) ([]T, error)) ([]T, error) {
+	const pageSize = 1000
+	var all []T
+	offset := 0
+	for {
+		page, err := fetch(offset, pageSize)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if len(page) < pageSize {
+			break
+		}
+		offset += pageSize
+	}
+	return all, nil
+}
+
 func registerFindings(svc *Services, server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_findings",
@@ -81,15 +99,33 @@ func registerFindings(svc *Services, server *mcp.Server) {
 		if err != nil {
 			return errorResult("resolving project", err), nil, nil
 		}
-		opts := &domain.FindingListOptions{
-			Start:    input.Start,
-			Limit:    input.Limit,
-			Severity: domain.Severity(input.Severity),
-			Status:   domain.FindingStatus(input.Status),
-		}
-		findings, err := svc.Client.ListFindings(ctx, projectID, opts)
-		if err != nil {
-			return errorResult("listing findings", err), nil, nil
+		var findings []domain.Finding
+		if input.Limit != nil {
+			opts := &domain.FindingListOptions{
+				Start:    input.Start,
+				Limit:    input.Limit,
+				Severity: domain.Severity(input.Severity),
+				Status:   domain.FindingStatus(input.Status),
+			}
+			findings, err = svc.Client.ListFindings(ctx, projectID, opts)
+			if err != nil {
+				return errorResult("listing findings", err), nil, nil
+			}
+		} else {
+			findings, err = paginateAll(ctx, func(offset, limit int) ([]domain.Finding, error) {
+				o := offset
+				l := limit
+				opts := &domain.FindingListOptions{
+					Start:    &o,
+					Limit:    &l,
+					Severity: domain.Severity(input.Severity),
+					Status:   domain.FindingStatus(input.Status),
+				}
+				return svc.Client.ListFindings(ctx, projectID, opts)
+			})
+			if err != nil {
+				return errorResult("listing findings", err), nil, nil
+			}
 		}
 		return jsonResult(findings), nil, nil
 	})
@@ -127,9 +163,19 @@ func registerFindings(svc *Services, server *mcp.Server) {
 			FindingSeverity:    input.FindingSeverity,
 			FindingExploitable: input.FindingExploitable,
 		}
-		findings, err := svc.Client.SearchFindings(ctx, projectID, search, input.Start, input.Limit)
-		if err != nil {
-			return errorResult("searching findings", err), nil, nil
+		var findings []domain.Finding
+		if input.Limit != nil {
+			findings, err = svc.Client.SearchFindings(ctx, projectID, search, input.Start, *input.Limit)
+			if err != nil {
+				return errorResult("searching findings", err), nil, nil
+			}
+		} else {
+			findings, err = paginateAll(ctx, func(offset, limit int) ([]domain.Finding, error) {
+				return svc.Client.SearchFindings(ctx, projectID, search, offset, limit)
+			})
+			if err != nil {
+				return errorResult("searching findings", err), nil, nil
+			}
 		}
 		return jsonResult(findings), nil, nil
 	})
@@ -187,14 +233,31 @@ func registerFindings(svc *Services, server *mcp.Server) {
 		if err != nil {
 			return errorResult("resolving project", err), nil, nil
 		}
-		opts := &domain.MitigatedOptions{
-			Start:     input.Start,
-			Limit:     input.Limit,
-			StartDate: input.StartDate,
-		}
-		findings, err := svc.Client.GetMitigatedFindings(ctx, projectID, opts)
-		if err != nil {
-			return errorResult("getting mitigated findings", err), nil, nil
+		var findings []domain.MitigatedFinding
+		if input.Limit != nil {
+			opts := &domain.MitigatedOptions{
+				Start:     input.Start,
+				Limit:     input.Limit,
+				StartDate: input.StartDate,
+			}
+			findings, err = svc.Client.GetMitigatedFindings(ctx, projectID, opts)
+			if err != nil {
+				return errorResult("getting mitigated findings", err), nil, nil
+			}
+		} else {
+			findings, err = paginateAll(ctx, func(offset, limit int) ([]domain.MitigatedFinding, error) {
+				o := offset
+				l := limit
+				opts := &domain.MitigatedOptions{
+					Start:     &o,
+					Limit:     &l,
+					StartDate: input.StartDate,
+				}
+				return svc.Client.GetMitigatedFindings(ctx, projectID, opts)
+			})
+			if err != nil {
+				return errorResult("getting mitigated findings", err), nil, nil
+			}
 		}
 		return jsonResult(findings), nil, nil
 	})

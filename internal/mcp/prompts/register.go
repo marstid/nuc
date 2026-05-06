@@ -119,7 +119,7 @@ func riskAssessmentPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.
 1. Call get_project_risk_score for the overall score.
 2. Call get_finding_overview for vulnerability counts.
 3. Call get_finding_metrics for remediation velocity.
-4. Call search_findings with finding_severity=Critical and finding_exploitable=Yes for active critical exploitable findings.
+4. Call search_findings with finding_severity=Critical and finding_exploitable=Yes (do NOT set a limit — omit it so all results are returned) for active critical exploitable findings.
 5. Call list_asset_groups then get_asset_group_metrics for group-level risk breakdown.
 6. Provide:
    - Overall risk rating with justification
@@ -147,7 +147,7 @@ func triageFindingsPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.
 				Content: &mcp.TextContent{Text: fmt.Sprintf(`Guide me through triaging findings in %s.
 
 1. Call get_finding_overview to understand the scope.
-2. Call search_findings with finding_severity=%s to get the relevant findings.
+2. Call search_findings with finding_severity=%s (do NOT set a limit — omit it so all results are returned) to get the relevant findings.
 3. For each finding, help me decide:
    - Is this a true positive or false positive?
    - What severity does it deserve?
@@ -173,11 +173,24 @@ func nucleusReportPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.G
 Step 1: Ask the user what kind of report they want using the question tool:
 - "General overview" — full project status
 - "Team-specific report" — focused on a single team
+- "Service-specific report" — focused on a single service
 
 Step 2: If the user chose team-specific:
 1. Call list_teams%s to get available teams.
-2. Present the team names as options using the question tool so the user can pick one.
-3. Use the selected team name as the asset_groups filter in subsequent calls.
+2. If there are 20 or fewer teams, present all team names as options using the question tool.
+   If there are more than 20 teams, use a two-step selection:
+   a. Sort teams alphabetically by name and group them into ranges of ~15 teams each (e.g. "A–C", "D–F", etc.). Present these ranges as options.
+   b. Once the user picks a range, present the team names within that range as options.
+   Do NOT show team IDs to the user at any step.
+3. Prefix the selected team name (team_name) with /teams/ when using it as the asset_groups filter (e.g. team-euc becomes /teams/team-euc). The team_id can be used for finding assignment via update_finding.
+
+If the user chose service-specific:
+1. Call list_services%s to get available services. You can pass team=<team-name> to filter services for a specific team.
+2. If there are 20 or fewer services, present all service names as options using the question tool.
+   If there are more than 20 services, use a two-step selection:
+   a. Sort services alphabetically by name and group them into ranges of ~15 services each. Present these ranges as options.
+   b. Once the user picks a range, present the service names within that range as options.
+3. Prefix the selected service name with /service/ when using it as the asset_groups filter (e.g. my-service becomes /service/my-service).
 
 Step 3: Gather data and generate the report.
 
@@ -189,19 +202,31 @@ For a GENERAL OVERVIEW:
 
 For a TEAM-SPECIFIC REPORT:
 1. Call get_asset_group_metrics with asset_groups=[selected_team] for team-level risk and metrics.
-2. Call search_findings with asset_groups=[selected_team] and finding_severity=Critical for the team's critical findings.
-3. Call search_findings with asset_groups=[selected_team] and finding_exploitable=Yes for the team's exploitable findings.
+2. Call search_findings with asset_groups=[selected_team] and finding_severity=Critical (do NOT set a limit — omit it so all results are returned) for the team's critical findings.
+3. Call search_findings with asset_groups=[selected_team] and finding_exploitable=Yes (do NOT set a limit — omit it so all results are returned) for the team's exploitable findings.
 4. Call get_finding_trend with asset_groups=[selected_team] for the team's vulnerability trajectory.
 
-IMPORTANT: The Nucleus API silently returns empty results if asset_groups has more than ~12 entries. Only pass one team at a time.
+For a SERVICE-SPECIFIC REPORT:
+1. Call get_asset_group_metrics with asset_groups=[selected_service] for service-level risk and metrics.
+2. Call search_findings with asset_groups=[selected_service] and finding_severity=Critical (do NOT set a limit — omit it so all results are returned) for the service's critical findings.
+3. Call search_findings with asset_groups=[selected_service] and finding_exploitable=Yes (do NOT set a limit — omit it so all results are returned) for the service's exploitable findings.
+4. Call get_finding_trend with asset_groups=[selected_service] for the service's vulnerability trajectory.
+
+IMPORTANT:
+- The Nucleus API silently returns empty results if asset_groups has more than ~12 entries. Only pass one team or service at a time.
+- Never set a limit parameter on any API call (list_assets, search_findings, etc.) — always omit it so all results are returned.
+- The Nucleus API includes scan-level informational placeholders as findings (e.g. "No Vulnerabilities Found" and Software List entries). These inflate counts and are NOT real vulnerabilities. When listing or searching findings, ALWAYS filter them out by either:
+  1. Excluding Informational severity (never use finding_severity=Info in reports), OR
+  2. Using finding_name to exclude them: pass finding_name that does NOT match "No Vulnerabilities Found" or "Software*" patterns.
+  When processing finding_overview or finding_trend results, subtract the Informational counts from totals before reporting. Never count or present these placeholder findings in the report.
 
 Step 4: Present a structured report:
-- Executive summary (risk score, critical/high counts)
-- Vulnerability distribution by severity
+- Executive summary (risk score, critical/high counts — excluding informational placeholders)
+- Vulnerability distribution by severity (Critical/High/Medium/Low only)
 - Remediation velocity (MTTR, discovered vs. remediated)
 - Trend analysis (improving/stable/declining)
 - Top findings or risk areas
-- Prioritized recommendations`, projectID, projectArg)},
+- Prioritized recommendations`, projectID, projectArg, projectArg)},
 			},
 		},
 	}, nil
