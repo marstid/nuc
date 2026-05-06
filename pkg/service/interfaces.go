@@ -48,6 +48,9 @@ type AssetService interface {
 
 	// GetGroupMetrics returns metrics for specified asset groups.
 	GetGroupMetrics(ctx context.Context, projectID string, opts *domain.AssetGroupMetricsOptions) ([]domain.AssetGroupMetrics, error)
+
+	// ListTeams returns all teams in a project.
+	ListTeams(ctx context.Context, projectID string) ([]domain.Team, error)
 }
 
 // FindingService defines operations on vulnerability findings.
