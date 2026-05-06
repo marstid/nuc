@@ -9,8 +9,9 @@ import (
 
 // Config holds the MCP server configuration resolved from file, flags, and environment.
 type Config struct {
-	APIKey  string
-	BaseURL string
+	APIKey         string
+	BaseURL        string
+	DefaultProject string
 }
 
 // Resolve builds a Config from the nuc config file, environment variables, and CLI flags,
@@ -24,12 +25,16 @@ func Resolve(apiKey, baseURL string) (*Config, error) {
 	}
 	cfg.APIKey = fileCfg.APIKey
 	cfg.BaseURL = fileCfg.BaseURL
+	cfg.DefaultProject = fileCfg.DefaultProject
 
 	if env := os.Getenv("NUC_API_KEY"); env != "" {
 		cfg.APIKey = env
 	}
 	if env := os.Getenv("NUC_BASE_URL"); env != "" {
 		cfg.BaseURL = env
+	}
+	if env := os.Getenv("NUC_PROJECT"); env != "" {
+		cfg.DefaultProject = env
 	}
 
 	if apiKey != "" {
