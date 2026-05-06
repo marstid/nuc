@@ -2,6 +2,7 @@ package tools
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/marstid/nuc/pkg/nucleus"
@@ -11,7 +12,8 @@ import (
 
 // Services holds the Nucleus API client used by all tool handlers.
 type Services struct {
-	Client *nucleus.Client
+	Client         *nucleus.Client
+	DefaultProject string
 }
 
 // RegisterAll registers all MCP tools on the given server.
@@ -39,4 +41,14 @@ func errorResult(op string, err error) *mcp.CallToolResult {
 			&mcp.TextContent{Text: fmt.Sprintf("Error %s: %v", op, err)},
 		},
 	}
+}
+
+func (s *Services) resolveProjectID(projectID string) (string, error) {
+	if projectID != "" {
+		return projectID, nil
+	}
+	if s.DefaultProject != "" {
+		return s.DefaultProject, nil
+	}
+	return "", errors.New("project_id is required: provide project_id, set NUC_PROJECT/default_project, or use list_projects to choose one")
 }

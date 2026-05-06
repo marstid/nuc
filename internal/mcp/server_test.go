@@ -2,15 +2,21 @@ package mcp
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+
+	"github.com/marstid/nuc/pkg/config"
+	"github.com/marstid/nuc/pkg/nucleus"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func TestServerInitialization(t *testing.T) {
 	cfg := &Config{
-		APIKey:  "test-key",
-		BaseURL: "https://example.com/api",
+		APIKey:         "test-key",
+		BaseURL:        "https://example.com/api",
+		DefaultProject: "42",
 	}
 
 	srv, err := New(cfg)
@@ -102,4 +108,154 @@ func TestServerInitialization(t *testing.T) {
 		}
 	}
 	t.Logf("All %d prompts registered correctly", len(prompts.Prompts))
+}
+
+func TestResolveDefaultProject(t *testing.T) {
+	t.Run("configured default wins", func(t *testing.T) {
+		client := nucleus.NewClient("http://127.0.0.1:1", "test-key")
+
+		projectID, err := resolveDefaultProject(context.Background(), client, "configured")
+
+		if err != nil {
+			t.Fatalf("resolveDefaultProject() error: %v", err)
+		}
+		if projectID != "configured" {
+			t.Fatalf("expected configured, got %q", projectID)
+		}
+	})
+
+	t.Run("single listed project becomes default", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/projects" {
+				t.Fatalf("unexpected path: %s", r.URL.Path)
+			}
+			_, _ = w.Write([]byte(`[{"project_id":"42","project_name":"Only"}]`))
+		}))
+		defer server.Close()
+
+		client := nucleus.NewClient(server.URL, "test-key")
+
+		projectID, err := resolveDefaultProject(context.Background(), client, "")
+
+		if err != nil {
+			t.Fatalf("resolveDefaultProject() error: %v", err)
+		}
+		if projectID != "42" {
+			t.Fatalf("expected 42, got %q", projectID)
+		}
+	})
+
+	t.Run("multiple listed projects returns no default", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`[{"project_id":"1"},{"project_id":"2"}]`))
+		}))
+		defer server.Close()
+
+		client := nucleus.NewClient(server.URL, "test-key")
+
+		projectID, err := resolveDefaultProject(context.Background(), client, "")
+
+		if err != nil {
+			t.Fatalf("resolveDefaultProject() error: %v", err)
+		}
+		if projectID != "" {
+			t.Fatalf("expected empty default, got %q", projectID)
+		}
+	})
+
+	t.Run("zero listed projects returns no default", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`[]`))
+		}))
+		defer server.Close()
+
+		client := nucleus.NewClient(server.URL, "test-key")
+
+		projectID, err := resolveDefaultProject(context.Background(), client, "")
+
+		if err != nil {
+			t.Fatalf("resolveDefaultProject() error: %v", err)
+		}
+		if projectID != "" {
+			t.Fatalf("expected empty default, got %q", projectID)
+		}
+	})
+
+	t.Run("list error returns no default and error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "nope", http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		client := nucleus.NewClient(server.URL, "test-key")
+
+		projectID, err := resolveDefaultProject(context.Background(), client, "")
+
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		if projectID != "" {
+			t.Fatalf("expected empty default, got %q", projectID)
+		}
+	})
+}
+
+func TestResolveIncludesDefaultProject(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("NUC_API_KEY", "")
+	t.Setenv("NUC_BASE_URL", "")
+	t.Setenv("NUC_PROJECT", "")
+
+	if err := config.Save(&config.Config{
+		APIKey:         "file-key",
+		BaseURL:        "https://example.com/api",
+		DefaultProject: "file-project",
+	}); err != nil {
+		t.Fatalf("saving config: %v", err)
+	}
+
+	cfg, err := Resolve("", "")
+	if err != nil {
+		t.Fatalf("Resolve() error: %v", err)
+	}
+	if cfg.DefaultProject != "file-project" {
+		t.Fatalf("expected file-project, got %q", cfg.DefaultProject)
+	}
+}
+
+func TestResolveDefaultProjectEnvOverride(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("NUC_API_KEY", "")
+	t.Setenv("NUC_BASE_URL", "")
+	t.Setenv("NUC_PROJECT", "env-project")
+
+	if err := config.Save(&config.Config{
+		APIKey:         "file-key",
+		BaseURL:        "https://example.com/api",
+		DefaultProject: "file-project",
+	}); err != nil {
+		t.Fatalf("saving config: %v", err)
+	}
+
+	cfg, err := Resolve("", "")
+	if err != nil {
+		t.Fatalf("Resolve() error: %v", err)
+	}
+	if cfg.DefaultProject != "env-project" {
+		t.Fatalf("expected env-project, got %q", cfg.DefaultProject)
+	}
+}
+
+func TestNewIgnoresDefaultProjectAutoDetectionError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "nope", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	_, err := New(&Config{APIKey: "test-key", BaseURL: server.URL})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 }
