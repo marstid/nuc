@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.1] - 2026-05-06
+
+### Added
+- ListTeams API client with Team domain model (97df215)
+- list_services MCP tool with optional team filter (054abb3)
+- Auto-paginate list_findings, search_findings, and get_mitigated_findings when limit is omitted (2a17a5d)
+- Service-specific report option in nucleusReportPrompt (0244afe)
+- Two-step alphabetical selection for >20 teams/services in report prompt (0244afe)
+
+### Fixed
+- Filter out informational placeholders ("No Vulnerabilities Found", Software List) from report counts (0244afe)
+- Add missing doc comments for exported Team type and ListTeams method (08fbd9d)
+
 ## [v0.3.0] - 2026-05-06
 
 ### Added
