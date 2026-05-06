@@ -47,6 +47,11 @@ type getAssetGroupMetricsInput struct {
 	Metrics     []string `json:"metrics,omitempty" jsonschema:"Specific metric names to include"`
 }
 
+type listServicesInput struct {
+	ProjectID string `json:"project_id,omitempty" jsonschema:"The Nucleus project ID. Optional when a default project is configured or auto-detected."`
+	Team      string `json:"team,omitempty" jsonschema:"Optional team name (e.g. team-euc) to filter services associated with that team"`
+}
+
 func registerAssets(svc *Services, server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_assets",
@@ -150,27 +155,69 @@ func registerAssets(svc *Services, server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_teams",
-		Description: "List all teams in a project. Teams are asset groups with names starting with /teams/. Returns top-level teams only (e.g. /teams/team-euc), excluding sub-groups like /teams/team-euc/container.",
+		Description: "List all teams in a project",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input projectIDInput) (*mcp.CallToolResult, any, error) {
 		projectID, err := svc.resolveProjectID(input.ProjectID)
 		if err != nil {
 			return errorResult("resolving project", err), nil, nil
 		}
-		groups, err := svc.Client.ListAssetGroups(ctx, projectID)
+		teams, err := svc.Client.ListTeams(ctx, projectID)
 		if err != nil {
 			return errorResult("listing teams", err), nil, nil
 		}
-		var teams []string
+		return jsonResult(teams), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "list_services",
+		Description: "List all services in a project. Services are asset groups with names starting with /service/. Returns top-level service names only (e.g. my-service). Optionally filter by team to return only services associated with that team.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input listServicesInput) (*mcp.CallToolResult, any, error) {
+		projectID, err := svc.resolveProjectID(input.ProjectID)
+		if err != nil {
+			return errorResult("resolving project", err), nil, nil
+		}
+
+		if input.Team != "" {
+			teamGroup := "/teams/" + input.Team
+			assets, err := svc.Client.ListAssets(ctx, projectID, &domain.AssetListOptions{AssetGroups: teamGroup})
+			if err != nil {
+				return errorResult("listing services for team", err), nil, nil
+			}
+			seen := make(map[string]bool)
+			var services []string
+			for _, a := range assets {
+				for _, g := range a.Groups {
+					if !strings.HasPrefix(g, "/service/") {
+						continue
+					}
+					rest := strings.TrimPrefix(g, "/service/")
+					if strings.Contains(rest, "/") {
+						continue
+					}
+					if !seen[rest] {
+						seen[rest] = true
+						services = append(services, rest)
+					}
+				}
+			}
+			return jsonResult(services), nil, nil
+		}
+
+		groups, err := svc.Client.ListAssetGroups(ctx, projectID)
+		if err != nil {
+			return errorResult("listing services", err), nil, nil
+		}
+		var services []string
 		for _, g := range groups {
-			if !strings.HasPrefix(g.Name, "/teams/") {
+			if !strings.HasPrefix(g.Name, "/service/") {
 				continue
 			}
-			rest := strings.TrimPrefix(g.Name, "/teams/")
+			rest := strings.TrimPrefix(g.Name, "/service/")
 			if strings.Contains(rest, "/") {
 				continue
 			}
-			teams = append(teams, g.Name)
+			services = append(services, rest)
 		}
-		return jsonResult(teams), nil, nil
+		return jsonResult(services), nil, nil
 	})
 }
