@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: write
-  actions: write
 
 jobs:
   tag:
@@ -19,6 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Configure git identity
@@ -28,15 +28,27 @@ jobs:
 
       - name: Extract version and tag
         run: |
-          VERSION="${{ github.event.pull_request.head.ref }}"
-          VERSION="${VERSION#release/}"
-          git tag -a "$VERSION" -m "Release $VERSION"
-          git push origin "$VERSION"
+          BRANCH="${{ github.event.pull_request.head.ref }}"
 
-      - name: Trigger release workflow
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION="${{ github.event.pull_request.head.ref }}"
+          if [[ ! "$BRANCH" =~ ^release/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release branch: $BRANCH"
+            exit 1
+          fi
+
+          VERSION="$BRANCH"
           VERSION="${VERSION#release/}"
-          gh workflow run release.yml --ref main -f tag="$VERSION"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null 2>&1; then
+            echo "Tag $VERSION already exists"
+            exit 1
+          fi
+
+          if ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then
+            echo "CHANGELOG.md does not contain an entry for $VERSION"
+            exit 1
+          fi
+
+          MERGE_SHA="${{ github.event.pull_request.merge_commit_sha }}"
+          git fetch origin main --tags
+          git tag -a "$VERSION" "$MERGE_SHA" -m "Release $VERSION"
+          git push origin "refs/tags/$VERSION"
