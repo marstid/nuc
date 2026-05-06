@@ -8,6 +8,7 @@ import (
 	"github.com/marstid/nuc/pkg/domain"
 )
 
+// ListTeams returns all teams in a project, excluding the default no-access team.
 func (c *Client) ListTeams(ctx context.Context, projectID string) ([]domain.Team, error) {
 	body, err := c.get(ctx, fmt.Sprintf("/projects/%s/teams", projectID), nil)
 	if err != nil {
