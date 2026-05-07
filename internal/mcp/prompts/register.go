@@ -176,7 +176,7 @@ Step 1: Ask the user what kind of report they want using the question tool:
 - "Service-specific report" — focused on a single service
 
 Step 2: If the user chose team-specific:
-1. Call list_teams%s to get available teams.
+1. Call list_teams%s with in_group=/service to get teams that have service assets. If the user wants to see all teams regardless, call list_teams%s without in_group.
 2. If there are 20 or fewer teams, present all team names as options using the question tool.
    If there are more than 20 teams, use a two-step selection:
    a. Sort teams alphabetically by name and group them into ranges of ~15 teams each (e.g. "A–C", "D–F", etc.). Present these ranges as options.
@@ -226,7 +226,7 @@ Step 4: Present a structured report:
 - Remediation velocity (MTTR, discovered vs. remediated)
 - Trend analysis (improving/stable/declining)
 - Top findings or risk areas
-- Prioritized recommendations`, projectID, projectArg, projectArg)},
+- Prioritized recommendations`, projectID, projectArg, projectArg, projectArg)},
 			},
 		},
 	}, nil

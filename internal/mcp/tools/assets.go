@@ -47,6 +47,11 @@ type getAssetGroupMetricsInput struct {
 	Metrics     []string `json:"metrics,omitempty" jsonschema:"Specific metric names to include"`
 }
 
+type listTeamsInput struct {
+	ProjectID string `json:"project_id,omitempty" jsonschema:"The Nucleus project ID. Optional when a default project is configured or auto-detected."`
+	InGroup   string `json:"in_group,omitempty" jsonschema:"Optional asset group prefix to filter teams (e.g. /service returns only teams with service sub-groups)"`
+}
+
 type listServicesInput struct {
 	ProjectID string `json:"project_id,omitempty" jsonschema:"The Nucleus project ID. Optional when a default project is configured or auto-detected."`
 	Team      string `json:"team,omitempty" jsonschema:"Optional team name (e.g. team-euc) to filter services associated with that team"`
@@ -155,17 +160,45 @@ func registerAssets(svc *Services, server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_teams",
-		Description: "List all teams in a project",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, input projectIDInput) (*mcp.CallToolResult, any, error) {
+		Description: "List all teams in a project. Teams are asset groups with names starting with /teams/. Returns top-level teams only (e.g. /teams/team-euc), excluding sub-groups like /teams/team-euc/container. Optionally pass in_group to return only teams that have sub-groups matching that prefix (e.g. in_group=/service to return only teams with service assets).",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input listTeamsInput) (*mcp.CallToolResult, any, error) {
 		projectID, err := svc.resolveProjectID(input.ProjectID)
 		if err != nil {
 			return errorResult("resolving project", err), nil, nil
 		}
+
+		if input.InGroup == "" {
+			teams, err := svc.Client.ListTeams(ctx, projectID)
+			if err != nil {
+				return errorResult("listing teams", err), nil, nil
+			}
+			return jsonResult(teams), nil, nil
+		}
+
+		inGroup := input.InGroup
+		if !strings.HasPrefix(inGroup, "/") {
+			inGroup = "/" + inGroup
+		}
+
+		groups, err := svc.Client.ListAssetGroups(ctx, projectID)
+		if err != nil {
+			return errorResult("listing asset groups for team filter", err), nil, nil
+		}
+
+		matchingTeams := teamsWithGroupPrefix(groups, inGroup)
+
 		teams, err := svc.Client.ListTeams(ctx, projectID)
 		if err != nil {
 			return errorResult("listing teams", err), nil, nil
 		}
-		return jsonResult(teams), nil, nil
+
+		filtered := make([]domain.Team, 0, len(teams))
+		for _, t := range teams {
+			if matchingTeams[t.TeamName] {
+				filtered = append(filtered, t)
+			}
+		}
+		return jsonResult(filtered), nil, nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -220,4 +253,24 @@ func registerAssets(svc *Services, server *mcp.Server) {
 		}
 		return jsonResult(services), nil, nil
 	})
+}
+
+func teamsWithGroupPrefix(groups []domain.AssetGroup, inGroup string) map[string]bool {
+	matching := make(map[string]bool)
+	for _, g := range groups {
+		if !strings.HasPrefix(g.Name, "/teams/") {
+			continue
+		}
+		afterTeams := g.Name[len("/teams/"):]
+		slashIdx := strings.Index(afterTeams, "/")
+		if slashIdx < 0 {
+			continue
+		}
+		teamName := afterTeams[:slashIdx]
+		remainder := afterTeams[slashIdx:]
+		if strings.HasPrefix(remainder, inGroup) {
+			matching[teamName] = true
+		}
+	}
+	return matching
 }
