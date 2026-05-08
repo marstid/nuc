@@ -45,16 +45,17 @@ func RegisterAll(server *mcp.Server) {
 	}, triageFindingsPrompt)
 
 	server.AddPrompt(&mcp.Prompt{
-		Name:        "nucleus_report",
+		Name:        "summary_report",
 		Description: "Generate a Nucleus Security status summary report, optionally focused on a specific team",
 		Arguments: []*mcp.PromptArgument{
 			{Name: "project_id", Description: "The Nucleus project ID. Optional when a default project is configured or auto-detected."},
 		},
-	}, nucleusReportPrompt)
+	}, summaryReportPrompt)
 }
 
 func analyzeFindingPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	projectID := projectRef(req.Params.Arguments["project_id"])
+	projectArg := projectToolArgument(req.Params.Arguments["project_id"])
 	findingNumber := req.Params.Arguments["finding_number"]
 
 	return &mcp.GetPromptResult{
@@ -64,14 +65,14 @@ func analyzeFindingPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.
 				Role: "user",
 				Content: &mcp.TextContent{Text: fmt.Sprintf(`Analyze finding %s in %s.
 
-1. Call get_finding to retrieve the full finding details.
-2. Call get_asset to retrieve the affected asset (use the asset_id from the finding).
+1. Call get_finding%s to retrieve the full finding details.
+2. Call get_asset%s to retrieve the affected asset (use the asset_id from the finding).
 3. Provide:
    - Vulnerability summary (name, CVE, severity, description)
    - Exploitability assessment (EPSS score, Mandiant data if available)
    - Affected asset context (type, criticality, public-facing status)
    - Remediation recommendation from the finding
-   - Suggested next action (e.g., update status, assign due date)`, findingNumber, projectID)},
+   - Suggested next action (e.g., update status, assign due date)`, findingNumber, projectID, projectArg, projectArg)},
 			},
 		},
 	}, nil
@@ -79,6 +80,7 @@ func analyzeFindingPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.
 
 func securityReportPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	projectID := projectRef(req.Params.Arguments["project_id"])
+	projectArg := projectToolArgument(req.Params.Arguments["project_id"])
 	timeframe := req.Params.Arguments["timeframe"]
 	if timeframe == "" {
 		timeframe = "90"
@@ -91,16 +93,16 @@ func securityReportPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.
 				Role: "user",
 				Content: &mcp.TextContent{Text: fmt.Sprintf(`Generate a security report for %s covering the last %s days.
 
-1. Call get_finding_overview for vulnerability distribution.
-2. Call get_finding_metrics for discovery/remediation rates.
-3. Call get_finding_trend for the vulnerability trajectory over the past %s days.
-4. Call get_project_risk_score for overall risk.
+1. Call get_finding_overview%s for vulnerability distribution.
+2. Call get_finding_metrics%s for discovery/remediation rates.
+3. Call get_finding_trend%s for the vulnerability trajectory over the past %s days.
+4. Call get_project_risk_score%s for overall risk.
 5. Provide a structured report:
    - Executive summary (risk score, critical/high counts)
    - Vulnerability distribution by severity
    - Remediation velocity (MTTR, discovered vs. remediated)
    - Trend analysis (improving/stable/declining)
-   - Top 5 recommendations`, projectID, timeframe, timeframe)},
+   - Top 5 recommendations`, projectID, timeframe, projectArg, projectArg, projectArg, timeframe, projectArg)},
 			},
 		},
 	}, nil
@@ -108,6 +110,7 @@ func securityReportPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.
 
 func riskAssessmentPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	projectID := projectRef(req.Params.Arguments["project_id"])
+	projectArg := projectToolArgument(req.Params.Arguments["project_id"])
 
 	return &mcp.GetPromptResult{
 		Description: "Perform a comprehensive risk assessment",
@@ -116,17 +119,17 @@ func riskAssessmentPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.
 				Role: "user",
 				Content: &mcp.TextContent{Text: fmt.Sprintf(`Perform a comprehensive risk assessment for %s.
 
-1. Call get_project_risk_score for the overall score.
-2. Call get_finding_overview for vulnerability counts.
-3. Call get_finding_metrics for remediation velocity.
-4. Call search_findings with finding_severity=Critical and finding_exploitable=Yes (do NOT set a limit — omit it so all results are returned) for active critical exploitable findings.
-5. Call list_asset_groups then get_asset_group_metrics for group-level risk breakdown.
+1. Call get_project_risk_score%s for the overall score.
+2. Call get_finding_overview%s for vulnerability counts.
+3. Call get_finding_metrics%s for remediation velocity.
+4. Call search_findings%s, setting finding_severity=Critical and finding_exploitable=Yes (do NOT set a limit — omit it so all results are returned) for active critical exploitable findings.
+5. Call list_asset_groups%s then get_asset_group_metrics%s for group-level risk breakdown.
 6. Provide:
    - Overall risk rating with justification
    - Critical exploitable findings requiring immediate attention
    - Asset group risk comparison
    - Remediation gap analysis
-   - Prioritized action items`, projectID)},
+   - Prioritized action items`, projectID, projectArg, projectArg, projectArg, projectArg, projectArg, projectArg)},
 			},
 		},
 	}, nil
@@ -134,6 +137,7 @@ func riskAssessmentPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.
 
 func triageFindingsPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	projectID := projectRef(req.Params.Arguments["project_id"])
+	projectArg := projectToolArgument(req.Params.Arguments["project_id"])
 	severity := req.Params.Arguments["severity"]
 	if severity == "" {
 		severity = "Critical"
@@ -146,20 +150,20 @@ func triageFindingsPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.
 				Role: "user",
 				Content: &mcp.TextContent{Text: fmt.Sprintf(`Guide me through triaging findings in %s.
 
-1. Call get_finding_overview to understand the scope.
-2. Call search_findings with finding_severity=%s (do NOT set a limit — omit it so all results are returned) to get the relevant findings.
+1. Call get_finding_overview%s to understand the scope.
+2. Call search_findings%s, setting finding_severity=%s (do NOT set a limit — omit it so all results are returned) to get the relevant findings.
 3. For each finding, help me decide:
    - Is this a true positive or false positive?
    - What severity does it deserve?
    - Should it be accepted as risk, fixed, or exception requested?
-4. When I confirm a decision, use update_finding to apply the status change with a comment.
-5. Continue until all findings are triaged or I say stop.`, projectID, severity)},
+4. When I confirm a decision, use update_finding%s to apply the status change with a comment.
+5. Continue until all findings are triaged or I say stop.`, projectID, projectArg, projectArg, severity, projectArg)},
 			},
 		},
 	}, nil
 }
 
-func nucleusReportPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+func summaryReportPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	projectID := projectRef(req.Params.Arguments["project_id"])
 	projectArg := projectToolArgument(req.Params.Arguments["project_id"])
 
@@ -199,12 +203,14 @@ For a GENERAL OVERVIEW:
 2. Call get_finding_overview for vulnerability distribution.
 3. Call get_finding_metrics for 30/90/180-day discovery and remediation rates.
 4. Call get_finding_trend for the vulnerability trajectory (use start_date 90 days ago).
+5. Call list_services to get all services. Then call get_asset_group_metrics for each service (batch up to 10 services per call if there are many) to get per-service severity counts (vuln_count_critical, vuln_count_high, vuln_count). Compute Other = vuln_count - vuln_count_critical - vuln_count_high.
 
 For a TEAM-SPECIFIC REPORT:
 1. Call get_asset_group_metrics with team=<selected_team> for team-level risk and metrics.
 2. Call search_findings with team=<selected_team> and finding_severity=Critical (do NOT set a limit — omit it so all results are returned) for the team's critical findings.
 3. Call search_findings with team=<selected_team> and finding_exploitable=Yes (do NOT set a limit — omit it so all results are returned) for the team's exploitable findings.
 4. Call get_finding_trend with team=<selected_team> for the team's vulnerability trajectory.
+5. Call list_services with team=<selected_team> to get the team's services. Then call get_asset_group_metrics for each service (batch up to 10 services per call if there are many) to get per-service severity counts (vuln_count_critical, vuln_count_high, vuln_count). Compute Other = vuln_count - vuln_count_critical - vuln_count_high.
 
 For a SERVICE-SPECIFIC REPORT:
 1. Call get_asset_group_metrics with service=<selected_service> for service-level risk and metrics.
@@ -224,6 +230,7 @@ IMPORTANT:
 Step 4: Present a structured report:
 - Executive summary (risk score, critical/high counts — excluding informational placeholders)
 - Vulnerability distribution by severity (Critical/High/Medium/Low only)
+- Findings per service (table: Service | Critical | High | Other) — exclude services with zero findings
 - Remediation velocity (MTTR, discovered vs. remediated)
 - Trend analysis (improving/stable/declining)
 - Top findings or risk areas
