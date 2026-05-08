@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.0] - 2026-05-08
+
+### Added
+- Add get_findings_summary MCP tool (173514a)
+- Add team/service params to asset listing tools (a2b7fa6)
+- Add team/service params to finding search tools (4aa99d5)
+- Update prompts to use team/service convenience params (ccc1039)
+
+### Other
+- Add tests for asset group filter helpers (e06dafb)
+
 ## [v0.3.2] - 2026-05-07
 
 ### Added
