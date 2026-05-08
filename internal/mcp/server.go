@@ -31,7 +31,8 @@ func New(cfg *Config) (*mcp.Server, error) {
 	}, &mcp.ServerOptions{
 		Instructions: "Nucleus Security MCP server. project_id is optional when a default project is configured or auto-detected. " +
 			"Use list_projects first if you need a different project ID. " +
-			"Use search_findings for targeted queries; use get_finding_overview for summaries.",
+			"Use search_findings for targeted queries; use get_finding_overview for summaries. " +
+			"Tools that filter by asset groups (list_assets, list_service_assets, search_findings, get_finding_trend, get_asset_group_metrics) accept team and service params directly — no /teams/ or /service/ prefix needed.",
 	})
 
 	tools.RegisterAll(svc, server)

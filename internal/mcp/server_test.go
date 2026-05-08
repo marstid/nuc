@@ -50,7 +50,7 @@ func TestServerInitialization(t *testing.T) {
 		"list_findings", "get_finding", "search_findings", "update_finding",
 		"bulk_update_findings", "get_mitigated_findings", "get_finding_trend",
 		"get_finding_overview", "get_finding_frameworks", "get_findings_summary",
-		"list_assets", "get_asset", "update_asset", "list_asset_groups", "get_asset_group_metrics", "list_teams", "list_services",
+		"list_assets", "get_asset", "update_asset", "list_asset_groups", "get_asset_group_metrics", "list_teams", "list_services", "list_service_assets",
 		"list_scans",
 		"get_finding_metrics",
 	}

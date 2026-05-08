@@ -182,7 +182,7 @@ Step 2: If the user chose team-specific:
    a. Sort teams alphabetically by name and group them into ranges of ~15 teams each (e.g. "A–C", "D–F", etc.). Present these ranges as options.
    b. Once the user picks a range, present the team names within that range as options.
    Do NOT show team IDs to the user at any step.
-3. Prefix the selected team name (team_name) with /teams/ when using it as the asset_groups filter (e.g. team-euc becomes /teams/team-euc). The team_id can be used for finding assignment via update_finding.
+3. Pass the selected team name directly via the team parameter (e.g. team=team-euc) when calling tools. No /teams/ prefix needed — tools handle it automatically.
 
 If the user chose service-specific:
 1. Call list_services%s to get available services. You can pass team=<team-name> to filter services for a specific team.
@@ -190,7 +190,7 @@ If the user chose service-specific:
    If there are more than 20 services, use a two-step selection:
    a. Sort services alphabetically by name and group them into ranges of ~15 services each. Present these ranges as options.
    b. Once the user picks a range, present the service names within that range as options.
-3. Prefix the selected service name with /service/ when using it as the asset_groups filter (e.g. my-service becomes /service/my-service).
+3. Pass the selected service name directly via the service parameter (e.g. service=my-service) when calling tools. No /service/ prefix needed — tools handle it automatically.
 
 Step 3: Gather data and generate the report.
 
@@ -201,16 +201,17 @@ For a GENERAL OVERVIEW:
 4. Call get_finding_trend for the vulnerability trajectory (use start_date 90 days ago).
 
 For a TEAM-SPECIFIC REPORT:
-1. Call get_asset_group_metrics with asset_groups=[selected_team] for team-level risk and metrics.
-2. Call search_findings with asset_groups=[selected_team] and finding_severity=Critical (do NOT set a limit — omit it so all results are returned) for the team's critical findings.
-3. Call search_findings with asset_groups=[selected_team] and finding_exploitable=Yes (do NOT set a limit — omit it so all results are returned) for the team's exploitable findings.
-4. Call get_finding_trend with asset_groups=[selected_team] for the team's vulnerability trajectory.
+1. Call get_asset_group_metrics with team=<selected_team> for team-level risk and metrics.
+2. Call search_findings with team=<selected_team> and finding_severity=Critical (do NOT set a limit — omit it so all results are returned) for the team's critical findings.
+3. Call search_findings with team=<selected_team> and finding_exploitable=Yes (do NOT set a limit — omit it so all results are returned) for the team's exploitable findings.
+4. Call get_finding_trend with team=<selected_team> for the team's vulnerability trajectory.
 
 For a SERVICE-SPECIFIC REPORT:
-1. Call get_asset_group_metrics with asset_groups=[selected_service] for service-level risk and metrics.
-2. Call search_findings with asset_groups=[selected_service] and finding_severity=Critical (do NOT set a limit — omit it so all results are returned) for the service's critical findings.
-3. Call search_findings with asset_groups=[selected_service] and finding_exploitable=Yes (do NOT set a limit — omit it so all results are returned) for the service's exploitable findings.
-4. Call get_finding_trend with asset_groups=[selected_service] for the service's vulnerability trajectory.
+1. Call get_asset_group_metrics with service=<selected_service> for service-level risk and metrics.
+2. Call search_findings with service=<selected_service> and finding_severity=Critical (do NOT set a limit — omit it so all results are returned) for the service's critical findings.
+3. Call search_findings with service=<selected_service> and finding_exploitable=Yes (do NOT set a limit — omit it so all results are returned) for the service's exploitable findings.
+4. Call get_finding_trend with service=<selected_service> for the service's vulnerability trajectory.
+5. Optionally call list_service_assets with service=<selected_service> to enumerate the actual assets (hosts, containers, repos) belonging to the service.
 
 IMPORTANT:
 - The Nucleus API silently returns empty results if asset_groups has more than ~12 entries. Only pass one team or service at a time.

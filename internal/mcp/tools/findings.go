@@ -27,6 +27,8 @@ type searchFindingsInput struct {
 	AssetName          string   `json:"asset_name,omitempty" jsonschema:"Filter by asset name (supports wildcards)"`
 	IPAddress          string   `json:"ip_address,omitempty" jsonschema:"Filter by IP address"`
 	AssetGroups        []string `json:"asset_groups,omitempty" jsonschema:"Filter by asset groups"`
+	Team               string   `json:"team,omitempty" jsonschema:"Filter by team name without prefix (e.g. team-euc). Adds /teams/{team} to asset_groups filter."`
+	Service            string   `json:"service,omitempty" jsonschema:"Filter by service name without prefix (e.g. payments). Adds /service/{service} to asset_groups filter."`
 	ScanType           string   `json:"scan_type,omitempty" jsonschema:"Filter by scan type"`
 	FindingCVE         string   `json:"finding_cve,omitempty" jsonschema:"Filter by CVE identifier"`
 	FindingName        string   `json:"finding_name,omitempty" jsonschema:"Filter by finding name (supports wildcards)"`
@@ -70,6 +72,8 @@ type getFindingTrendInput struct {
 	StartDate   string   `json:"start_date,omitempty" jsonschema:"Trend start date (YYYY-MM-DD)"`
 	EndDate     string   `json:"end_date,omitempty" jsonschema:"Trend end date (YYYY-MM-DD)"`
 	AssetGroups []string `json:"asset_groups,omitempty" jsonschema:"Filter by asset groups"`
+	Team        string   `json:"team,omitempty" jsonschema:"Filter by team name without prefix (e.g. team-euc). Adds /teams/{team} to asset_groups filter."`
+	Service     string   `json:"service,omitempty" jsonschema:"Filter by service name without prefix (e.g. payments). Adds /service/{service} to asset_groups filter."`
 }
 
 type findingSummaryFilterInput struct {
@@ -176,7 +180,7 @@ func registerFindings(svc *Services, server *mcp.Server) {
 		search := &domain.FindingSearch{
 			AssetName:          input.AssetName,
 			IPAddress:          input.IPAddress,
-			AssetGroups:        input.AssetGroups,
+			AssetGroups:        buildAssetGroupsSlice(input.AssetGroups, input.Team, input.Service),
 			ScanType:           input.ScanType,
 			FindingCVE:         input.FindingCVE,
 			FindingName:        input.FindingName,
@@ -293,7 +297,7 @@ func registerFindings(svc *Services, server *mcp.Server) {
 		opts := &domain.TrendOptions{
 			StartDate:   input.StartDate,
 			EndDate:     input.EndDate,
-			AssetGroups: input.AssetGroups,
+			AssetGroups: buildAssetGroupsSlice(input.AssetGroups, input.Team, input.Service),
 		}
 		trend, err := svc.Client.GetFindingTrend(ctx, projectID, opts)
 		if err != nil {
