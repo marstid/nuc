@@ -93,7 +93,7 @@ func TestServerInitialization(t *testing.T) {
 		t.Fatalf("ListPrompts: %v", err)
 	}
 
-	expectedPrompts := []string{"analyze_finding", "security_report", "risk_assessment", "triage_findings", "nucleus_report"}
+	expectedPrompts := []string{"analyze_finding", "security_report", "risk_assessment", "triage_findings", "summary_report"}
 	if len(prompts.Prompts) != len(expectedPrompts) {
 		t.Fatalf("expected %d prompts, got %d", len(expectedPrompts), len(prompts.Prompts))
 	}
