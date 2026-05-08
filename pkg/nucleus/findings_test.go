@@ -318,6 +318,168 @@ func TestClient_GetFindingOverview(t *testing.T) {
 	assert.Equal(t, 42000, overview.VulnerabilityScore)
 }
 
+func TestClient_GetFindingsSummary(t *testing.T) {
+	fixture := loadFixture(t, "findings_summary.json")
+
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/projects/42/findings/summary", r.URL.Path)
+
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+
+		// Empty request body should still be valid JSON
+		var payload map[string]any
+		require.NoError(t, json.Unmarshal(body, &payload))
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(fixture)
+	})
+
+	req := &domain.FindingSummaryRequest{}
+	findings, err := client.GetFindingsSummary(context.Background(), "42", req, 0, 0)
+
+	require.NoError(t, err)
+	require.Len(t, findings, 2)
+	assert.Equal(t, "VULN-001", findings[0].FindingNumber)
+	assert.Equal(t, "SQL Injection in Login Form", findings[0].FindingName)
+	assert.Equal(t, "Critical", findings[0].FindingSeverity)
+	assert.Equal(t, 3, findings[0].AssetCount.Value)
+	assert.Equal(t, 5, findings[0].FindingCount.Value)
+	assert.Equal(t, 1, findings[0].FindingExploitable.Value)
+	assert.False(t, findings[0].FindingPinned)
+	assert.InDelta(t, 0.85, findings[0].EPSSScore.Value, 0.001)
+
+	assert.Equal(t, "VULN-002", findings[1].FindingNumber)
+	assert.Equal(t, 15, findings[1].AssetCount.Value)
+	assert.True(t, findings[1].FindingPinned)
+	assert.Equal(t, "OpenSSL Buffer Overflow", findings[1].CISAVulnName)
+	assert.Equal(t, []string{"High", "Medium"}, findings[1].FindingSeverities)
+	assert.Equal(t, []string{"Active", "In Progress"}, findings[1].FindingStatuses)
+}
+
+func TestClient_GetFindingsSummary_WithFilters(t *testing.T) {
+	fixture := loadFixture(t, "findings_summary.json")
+
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/projects/42/findings/summary", r.URL.Path)
+
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+
+		var payload struct {
+			Filter []json.RawMessage `json:"filter"`
+			Sort   []struct {
+				Property  string `json:"property"`
+				Direction string `json:"direction"`
+			} `json:"sort"`
+		}
+		require.NoError(t, json.Unmarshal(body, &payload))
+		require.Len(t, payload.Filter, 2)
+
+		// Verify single-value filter serializes as string
+		var filter0 struct {
+			Property   string `json:"property"`
+			Value      string `json:"value"`
+			ExactMatch bool   `json:"exactMatch"`
+		}
+		require.NoError(t, json.Unmarshal(payload.Filter[0], &filter0))
+		assert.Equal(t, "scan_type", filter0.Property)
+		assert.Equal(t, "Container", filter0.Value)
+		assert.True(t, filter0.ExactMatch)
+
+		// Verify multi-value filter serializes as array
+		var filter1 struct {
+			Property   string   `json:"property"`
+			Value      []string `json:"value"`
+			ExactMatch bool     `json:"exactMatch"`
+		}
+		require.NoError(t, json.Unmarshal(payload.Filter[1], &filter1))
+		assert.Equal(t, "finding_severity", filter1.Property)
+		assert.Equal(t, []string{"Critical", "High"}, filter1.Value)
+		assert.False(t, filter1.ExactMatch)
+
+		// Verify sort
+		require.Len(t, payload.Sort, 1)
+		assert.Equal(t, "finding_severities", payload.Sort[0].Property)
+		assert.Equal(t, "DESC", payload.Sort[0].Direction)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(fixture)
+	})
+
+	req := &domain.FindingSummaryRequest{
+		Filter: []domain.FindingSummaryFilter{
+			{Property: "scan_type", Value: "Container", ExactMatch: true},
+			{Property: "finding_severity", Values: []string{"Critical", "High"}, ExactMatch: false},
+		},
+		Sort: []domain.FindingSummarySort{
+			{Property: "finding_severities", Direction: "DESC"},
+		},
+	}
+
+	findings, err := client.GetFindingsSummary(context.Background(), "42", req, 0, 0)
+
+	require.NoError(t, err)
+	require.Len(t, findings, 2)
+}
+
+func TestClient_GetFindingsSummary_WithPagination(t *testing.T) {
+	fixture := loadFixture(t, "findings_summary.json")
+
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/projects/42/findings/summary", r.URL.Path)
+		assert.Equal(t, "50", r.URL.Query().Get("start"))
+		assert.Equal(t, "100", r.URL.Query().Get("limit"))
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(fixture)
+	})
+
+	req := &domain.FindingSummaryRequest{}
+	findings, err := client.GetFindingsSummary(context.Background(), "42", req, 50, 100)
+
+	require.NoError(t, err)
+	require.Len(t, findings, 2)
+}
+
+func TestFindingSummaryFilter_MarshalJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		filter   domain.FindingSummaryFilter
+		expected string
+	}{
+		{
+			name:     "single value filter",
+			filter:   domain.FindingSummaryFilter{Property: "scan_type", Value: "Container", ExactMatch: true},
+			expected: `{"property":"scan_type","value":"Container","exactMatch":true}`,
+		},
+		{
+			name:     "array value filter",
+			filter:   domain.FindingSummaryFilter{Property: "finding_severity", Values: []string{"Critical", "High"}, ExactMatch: false},
+			expected: `{"property":"finding_severity","value":["Critical","High"],"exactMatch":false}`,
+		},
+		{
+			name:     "exactMatch false is not omitted",
+			filter:   domain.FindingSummaryFilter{Property: "finding_name", Value: "SQL", ExactMatch: false},
+			expected: `{"property":"finding_name","value":"SQL","exactMatch":false}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := json.Marshal(tt.filter)
+			require.NoError(t, err)
+			assert.JSONEq(t, tt.expected, string(data))
+		})
+	}
+}
+
 func TestClient_GetFrameworks(t *testing.T) {
 	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodGet, r.Method)

@@ -179,6 +179,30 @@ func (c *Client) GetFindingOverview(ctx context.Context, projectID string) (*dom
 	return &overview, nil
 }
 
+// GetFindingsSummary returns findings grouped by finding_number with optional filters and sorting.
+// Pagination uses query params start/limit (API max: 100 per page).
+func (c *Client) GetFindingsSummary(ctx context.Context, projectID string, req *domain.FindingSummaryRequest, start, limit int) ([]domain.FindingSummary, error) {
+	params := url.Values{}
+	if start > 0 {
+		params.Set("start", fmt.Sprintf("%d", start))
+	}
+	if limit > 0 {
+		params.Set("limit", fmt.Sprintf("%d", limit))
+	}
+
+	body, err := c.postWithParams(ctx, fmt.Sprintf("/projects/%s/findings/summary", projectID), params, req)
+	if err != nil {
+		return nil, fmt.Errorf("getting findings summary for project %s: %w", projectID, err)
+	}
+
+	var findings []domain.FindingSummary
+	if err := json.Unmarshal(body, &findings); err != nil {
+		return nil, fmt.Errorf("decoding findings summary response: %w", err)
+	}
+
+	return findings, nil
+}
+
 // GetFrameworks returns compliance frameworks associated with findings.
 func (c *Client) GetFrameworks(ctx context.Context, projectID string) ([]string, error) {
 	body, err := c.get(ctx, fmt.Sprintf("/projects/%s/findings/frameworks", projectID), nil)
