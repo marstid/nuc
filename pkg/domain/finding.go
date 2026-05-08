@@ -260,3 +260,78 @@ type TrendOptions struct {
 	EndDate     string
 	AssetGroups []string
 }
+
+// FindingSummaryFilter represents a single filter condition for the findings summary endpoint.
+// The API accepts "value" as either a string or array of strings depending on the property.
+// Use Value for single-value filters, or Values for multi-value filters
+// (finding_severity, team_names, asset_groups).
+// A custom MarshalJSON ensures the correct shape is sent to the API.
+type FindingSummaryFilter struct {
+	Property   string
+	Value      string
+	Values     []string
+	ExactMatch bool
+}
+
+// MarshalJSON serializes the filter, outputting "value" as either a string or []string
+// depending on which field is populated.
+func (f FindingSummaryFilter) MarshalJSON() ([]byte, error) {
+	type wire struct {
+		Property   string `json:"property"`
+		Value      any    `json:"value"`
+		ExactMatch bool   `json:"exactMatch"`
+	}
+
+	var value any
+	if len(f.Values) > 0 {
+		value = f.Values
+	} else {
+		value = f.Value
+	}
+
+	return json.Marshal(wire{
+		Property:   f.Property,
+		Value:      value,
+		ExactMatch: f.ExactMatch,
+	})
+}
+
+// FindingSummarySort represents a sort rule for the findings summary endpoint.
+type FindingSummarySort struct {
+	Property  string `json:"property"`
+	Direction string `json:"direction"`
+}
+
+// FindingSummaryRequest is the POST body for /projects/{id}/findings/summary.
+type FindingSummaryRequest struct {
+	Filter []FindingSummaryFilter `json:"filter,omitempty"`
+	Sort   []FindingSummarySort   `json:"sort,omitempty"`
+}
+
+// FindingSummary represents a finding grouped by finding_number from the summary endpoint.
+// Unlike Finding which represents an individual instance per asset, FindingSummary aggregates
+// across assets showing counts and combined statuses/severities.
+type FindingSummary struct {
+	FindingNumber        string    `json:"finding_number"`
+	FindingName          string    `json:"finding_name"`
+	FindingSeverity      string    `json:"finding_severity"`
+	FindingSeverities    []string  `json:"finding_severities"`
+	FindingStatuses      []string  `json:"finding_statuses"`
+	FindingStatus        string    `json:"finding_status"`
+	FindingDiscovered    string    `json:"finding_discovered"`
+	FindingExploitable   FlexInt   `json:"finding_exploitable"`
+	FindingPinned        bool      `json:"finding_pinned"`
+	FindingSeverityScore FlexInt   `json:"finding_severity_score"`
+	ScanType             string    `json:"scan_type"`
+	ScanDate             string    `json:"scan_date"`
+	AssetCount           FlexInt   `json:"asset_count"`
+	FindingCount         FlexInt   `json:"finding_count"`
+	AssetFixedCount      FlexInt   `json:"asset_fixed_count"`
+	AssetMitigatedCount  FlexInt   `json:"asset_mitigated_count"`
+	FindingCVE           string    `json:"finding_cve"`
+	FindingIAVA          string    `json:"finding_iava"`
+	IssueOpenCount       FlexInt   `json:"issue_open_count"`
+	IssueClosedCount     FlexInt   `json:"issue_closed_count"`
+	EPSSScore            FlexFloat `json:"epss_score"`
+	CISAVulnName         string    `json:"cisa_vulnerability_name"`
+}

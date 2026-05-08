@@ -72,6 +72,26 @@ type getFindingTrendInput struct {
 	AssetGroups []string `json:"asset_groups,omitempty" jsonschema:"Filter by asset groups"`
 }
 
+type findingSummaryFilterInput struct {
+	Property   string   `json:"property" jsonschema:"required,The property to filter on. Common properties: finding_severity (Critical/High/Medium/Low/Informational), finding_name, finding_status (Active/Fixed/Accepted Risk/False Positive/In Progress), finding_exploitable (0=no/1=yes/2=manual), scan_type (Container/DAST/SAST/Infrastructure), asset_groups, team_names, finding_cve"`
+	Value      string   `json:"value,omitempty" jsonschema:"Single string value to filter by. Use this for single-value filters. Mutually exclusive with values."`
+	Values     []string `json:"values,omitempty" jsonschema:"Array of string values for multi-value filters (supported for finding_severity, team_names, asset_groups). Mutually exclusive with value."`
+	ExactMatch bool     `json:"exact_match,omitempty" jsonschema:"Set to true for exact match filtering. Default is false which uses substring/contains matching."`
+}
+
+type findingSummarySortInput struct {
+	Property  string `json:"property" jsonschema:"required,The property to sort by (e.g. finding_severities)"`
+	Direction string `json:"direction" jsonschema:"required,Sort direction: ASC or DESC"`
+}
+
+type getFindingsSummaryInput struct {
+	ProjectID string                     `json:"project_id,omitempty" jsonschema:"The Nucleus project ID. Optional when a default project is configured or auto-detected."`
+	Filter    []findingSummaryFilterInput `json:"filter,omitempty" jsonschema:"Array of filter conditions. Each filter specifies a property and value (string) or values (array). Multiple filters are ANDed together."`
+	Sort      []findingSummarySortInput   `json:"sort,omitempty" jsonschema:"Array of sort rules with property and direction (ASC/DESC)."`
+	Start     int                        `json:"start,omitempty" jsonschema:"Pagination offset (default: 0)"`
+	Limit     *int                       `json:"limit,omitempty" jsonschema:"Max results per page (API max: 100). Omit to auto-paginate and return all results."`
+}
+
 func paginateAll[T any](ctx context.Context, fetch func(offset, limit int) ([]T, error)) ([]T, error) {
 	const pageSize = 1000
 	var all []T
@@ -310,5 +330,103 @@ func registerFindings(svc *Services, server *mcp.Server) {
 			return errorResult("getting finding frameworks", err), nil, nil
 		}
 		return jsonResult(frameworks), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "get_findings_summary",
+		Description: `Get findings grouped by finding_number (deduplicated across assets) with flexible filtering and sorting.
+
+Unlike search_findings which returns one result per finding-per-asset, this returns unique findings with aggregate counts showing how many assets are affected (asset_count), total instances (finding_count), how many are fixed (asset_fixed_count), and how many are mitigated (asset_mitigated_count).
+
+FILTERING:
+Each filter is an object with: property, value (string) OR values (string array), and optional exact_match (bool).
+- String filter example: {"property": "finding_name", "value": "SQL Injection"}
+- Array filter example: {"property": "finding_severity", "values": ["Critical", "High"]}
+- Exact match example: {"property": "scan_type", "value": "Container", "exact_match": true}
+- Multiple filters are ANDed together.
+
+Common filterable properties:
+- finding_severity: Critical, High, Medium, Low, Informational (supports array via values)
+- finding_name: vulnerability name (substring match by default, use exact_match for exact)
+- finding_status: Active, Fixed, Accepted Risk, False Positive, In Progress, etc.
+- finding_exploitable: "0" (not exploitable), "1" (exploitable), "2" (manually set)
+- scan_type: Container, DAST, SAST, Infrastructure, etc. (use exact_match recommended)
+- asset_groups: filter by asset group names (supports array via values)
+- team_names: filter by assigned team names (supports array via values)
+- finding_cve: filter by CVE identifier
+
+SORTING:
+- property: "finding_severities" (commonly used)
+- direction: "ASC" (ascending) or "DESC" (descending)
+
+EXAMPLES:
+1. All critical and high findings:
+   filter: [{"property": "finding_severity", "values": ["Critical", "High"]}]
+
+2. Exploitable findings for a specific team:
+   filter: [{"property": "finding_exploitable", "value": "1"}, {"property": "team_names", "values": ["team-platform"]}]
+
+3. Container findings sorted by severity descending:
+   filter: [{"property": "scan_type", "value": "Container", "exact_match": true}]
+   sort: [{"property": "finding_severities", "direction": "DESC"}]
+
+4. Active findings in specific asset groups:
+   filter: [{"property": "finding_status", "value": "Active"}, {"property": "asset_groups", "values": ["/service/my-service"]}]`,
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input getFindingsSummaryInput) (*mcp.CallToolResult, any, error) {
+		projectID, err := svc.resolveProjectID(input.ProjectID)
+		if err != nil {
+			return errorResult("resolving project", err), nil, nil
+		}
+
+		// Convert MCP input filters to domain filters.
+		var filters []domain.FindingSummaryFilter
+		for _, f := range input.Filter {
+			filters = append(filters, domain.FindingSummaryFilter{
+				Property:   f.Property,
+				Value:      f.Value,
+				Values:     f.Values,
+				ExactMatch: f.ExactMatch,
+			})
+		}
+
+		// Convert sort rules.
+		var sorts []domain.FindingSummarySort
+		for _, s := range input.Sort {
+			sorts = append(sorts, domain.FindingSummarySort{
+				Property:  s.Property,
+				Direction: s.Direction,
+			})
+		}
+
+		summaryReq := &domain.FindingSummaryRequest{
+			Filter: filters,
+			Sort:   sorts,
+		}
+
+		const findingsSummaryPageSize = 100
+
+		var findings []domain.FindingSummary
+		if input.Limit != nil {
+			findings, err = svc.Client.GetFindingsSummary(ctx, projectID, summaryReq, input.Start, *input.Limit)
+			if err != nil {
+				return errorResult("getting findings summary", err), nil, nil
+			}
+		} else {
+			// Auto-paginate with page size 100 (API max).
+			offset := input.Start
+			for {
+				page, err := svc.Client.GetFindingsSummary(ctx, projectID, summaryReq, offset, findingsSummaryPageSize)
+				if err != nil {
+					return errorResult("getting findings summary", err), nil, nil
+				}
+				findings = append(findings, page...)
+				if len(page) < findingsSummaryPageSize {
+					break
+				}
+				offset += findingsSummaryPageSize
+			}
+		}
+
+		return jsonResult(findings), nil, nil
 	})
 }
